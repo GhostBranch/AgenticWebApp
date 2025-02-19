@@ -83,6 +83,16 @@ export default defineEventHandler(async (event) => {
           "end": "YYYY-MM-DDTHH:mm:ss"
         }
       }
+
+      If the user wants to create a Todoist task, respond with a JSON object in this format:
+      {
+        "action": "createTask",
+        "task": {
+          "content": "Task description",
+          "dueString": "tomorrow", // Optional, can be "today", "tomorrow", or a specific date
+          "priority": 1 // Optional, 1-4 where 4 is highest priority
+        }
+      }
       
       Make sure to wrap the JSON in triple backticks like this: \`\`\`json {...} \`\`\`
       
@@ -92,11 +102,12 @@ export default defineEventHandler(async (event) => {
     const response = await result.response
     const text = response.text()
 
-    // Check if the response contains a JSON object for creating an event
+    // Check if the response contains a JSON object
     const jsonMatch = text.match(/```json\s*({[\s\S]*?})\s*```/)
     if (jsonMatch) {
       try {
         const actionData = JSON.parse(jsonMatch[1])
+        
         if (actionData.action === 'createEvent') {
           // Create the calendar event
           const event = await calendar.events.insert({
@@ -119,10 +130,23 @@ export default defineEventHandler(async (event) => {
             message: `I've created the event "${actionData.event.summary}" in your calendar.`
           }
         }
+        
+        if (actionData.action === 'createTask') {
+          // Create the Todoist task
+          const task = await todoistClient.addTask({
+            content: actionData.task.content,
+            dueString: actionData.task.dueString,
+            priority: actionData.task.priority
+          })
+          
+          return {
+            message: `I've created the task "${actionData.task.content}" in Todoist.`
+          }
+        }
       } catch (error) {
-        console.error('Error creating calendar event:', error)
+        console.error('Error creating item:', error)
         return {
-          message: "I understood you wanted to create an event, but I encountered an error. Please try again with a different format."
+          message: "I understood your request, but I encountered an error. Please try again with a different format."
         }
       }
     }
