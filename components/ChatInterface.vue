@@ -1,21 +1,19 @@
 <template>
   <div class="chat-container">
+    <div class="toggle-docs">
+      <input type="checkbox" v-model="useOfficialDocs" id="docs-toggle">
+      <label for="docs-toggle">Gebruik officiële documentatie</label>
+    </div>
     <div class="chat-messages" ref="messagesContainer">
-      <div v-for="(message, index) in messages" :key="index" 
-           :class="['message', message.role]">
-        <div v-if="message.role === 'assistant'" 
-             v-html="renderMarkdown(message.content)" 
-             class="markdown-content" />
+      <div v-for="(message, index) in messages" :key="index" :class="['message', message.role]">
+        <div v-if="message.role === 'assistant'" v-html="renderMarkdown(message.content)" class="markdown-content" />
         <div v-else>
           {{ message.content }}
         </div>
       </div>
     </div>
     <div class="chat-input">
-      <input v-model="userInput" 
-             @keyup.enter="sendMessage" 
-             placeholder="Ask me anything about your tasks or schedule..."
-             type="text">
+      <input v-model="userInput" @keyup.enter="sendMessage" placeholder="Ask me anything about your tasks" type="text">
       <button @click="sendMessage">Send</button>
     </div>
   </div>
@@ -32,6 +30,7 @@ interface Message {
 const userInput = ref('')
 const messages = ref<Message[]>([])
 const messagesContainer = ref<HTMLElement | null>(null)
+const useOfficialDocs = ref(false)
 
 const renderMarkdown = (content: string) => {
   return marked(content, { breaks: true })
@@ -40,31 +39,28 @@ const renderMarkdown = (content: string) => {
 const sendMessage = async () => {
   if (!userInput.value.trim()) return
 
+  const currentInput = userInput.value
   messages.value.push({
     role: 'user',
-    content: userInput.value
+    content: currentInput
   })
-
-  const userMessage = userInput.value
   userInput.value = ''
 
   try {
-    const response = await $fetch('/api/chat', {
+    const endpoint = useOfficialDocs.value ? '/api/chat-official' : '/api/chat'
+    const response = await $fetch(endpoint, {
       method: 'POST',
       body: {
-        message: userMessage
+        message: currentInput
       }
     })
 
-    if (response.needsAuth) {
-      // Redirect to Google auth
-      window.location.href = '/api/auth/google'
-    } else {
-      messages.value.push({
-        role: 'assistant',
-        content: response.message
-      })
-    }
+
+    messages.value.push({
+      role: 'assistant',
+      content: response.message
+    })
+
   } catch (error) {
     console.error('Error sending message:', error)
     messages.value.push({
@@ -117,7 +113,7 @@ const sendMessage = async () => {
   margin: 0.5em 0;
 }
 
-.markdown-content :deep(ul), 
+.markdown-content :deep(ul),
 .markdown-content :deep(ol) {
   margin: 0.5em 0;
   padding-left: 1.5em;
@@ -174,4 +170,8 @@ button {
 button:hover {
   background-color: #1976d2;
 }
-</style> 
+
+.toggle-docs {
+  margin-bottom: 10px;
+}
+</style>
